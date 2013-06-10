@@ -92,6 +92,9 @@ obj-$(CONFIG_MACH_SNAPPER_9260)	+= board-snapper9260.o
 # AT91SAM9G45 board-specific support
 obj-$(CONFIG_MACH_AT91SAM9M10G45EK) += board-sam9m10g45ek.o
 
+# HMI800 board-specific support
+obj-$(CONFIG_MACH_HMI800) += board-hmi800.o 
+
 # AT91SAM board with device-tree
 obj-$(CONFIG_MACH_AT91SAM_DT) += board-dt.o
 

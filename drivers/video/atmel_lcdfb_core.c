@@ -432,7 +432,7 @@ static int atmel_lcdfb_setcolreg(unsigned int regno, unsigned int red,
 			 * TODO: intensity bit. Maybe something like
 			 *   ~(red[10] ^ green[10] ^ blue[10]) & 1
 			 */
-			writel(val, sinfo->clut + regno * 4);
+//			writel(val, sinfo->clut + regno * 4);
 			ret = 0;
 		}
 		break;
@@ -440,7 +440,7 @@ static int atmel_lcdfb_setcolreg(unsigned int regno, unsigned int red,
 	case FB_VISUAL_MONO01:
 		if (regno < 2) {
 			val = (regno == 0) ? 0x00 : 0x1F;
-			writel(val, sinfo->clut + regno * 4);
+//			writel(val, sinfo->clut + regno * 4);
 			ret = 0;
 		}
 		break;
@@ -630,20 +630,20 @@ int __atmel_lcdfb_probe(struct platform_device *pdev,
 		ret = -ENXIO;
 		goto stop_clk;
 	}
-
+/*
 	clut = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!clut) {
 		dev_err(dev, "clut resources unusable\n");
 		ret = -ENXIO;
 		goto stop_clk;
 	}
-
+*/
 	/* No error checking, some devices can do without IRQ */
 	sinfo->irq_base = platform_get_irq(pdev, 0);
 
 	/* Initialize video memory */
 	//FIXME: Fix LUTs for old platforms
-	map = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	map = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (map) {
 		/* use a pre-allocated memory buffer */
 		info->fix.smem_start = map->start;
@@ -686,7 +686,7 @@ int __atmel_lcdfb_probe(struct platform_device *pdev,
 		dev_err(dev, "cannot map LCDC registers\n");
 		goto release_mem;
 	}
-
+/*
 	//FIXME: proper request_region and cleanup
 	if (!request_mem_region(clut->start, resource_size(clut), pdev->name)) {
 		ret = -EBUSY;
@@ -697,7 +697,7 @@ int __atmel_lcdfb_probe(struct platform_device *pdev,
 		dev_err(dev, "cannot map CLUT\n");
 		goto unmap_mmio;
 	}
-
+*/
 	/* Initialize PWM for contrast or backlight ("off") */
 	if (sinfo->dev_data->init_contrast)
 		sinfo->dev_data->init_contrast(sinfo);

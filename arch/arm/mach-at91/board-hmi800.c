@@ -185,84 +185,20 @@ static void __init ek_add_device_nand(void)
 
 
 /*
- *  ISI
- */
-static struct isi_platform_data __initdata isi_data = {
-	.frate			= ISI_CFG1_FRATE_CAPTURE_ALL,
-	/* to use codec and preview path simultaneously */
-	.full_mode		= 1,
-	.data_width_flags	= ISI_DATAWIDTH_8 | ISI_DATAWIDTH_10,
-	/* ISI_MCK is provided by programmable clock or external clock */
-	.mck_hz			= 25000000,
-};
-
-
-/*
- * soc-camera OV2640
- */
-#if defined(CONFIG_SOC_CAMERA_OV2640) || \
-	defined(CONFIG_SOC_CAMERA_OV2640_MODULE)
-static unsigned long isi_camera_query_bus_param(struct soc_camera_link *link)
-{
-	/* ISI board for ek using default 8-bits connection */
-	return SOCAM_DATAWIDTH_8;
-}
-
-static int i2c_camera_power(struct device *dev, int on)
-{
-	/* enable or disable the camera */
-	pr_debug("%s: %s the camera\n", __func__, on ? "ENABLE" : "DISABLE");
-	at91_set_gpio_output(AT91_PIN_PD13, !on);
-
-	if (!on)
-		goto out;
-
-	/* If enabled, give a reset impulse */
-	at91_set_gpio_output(AT91_PIN_PD12, 0);
-	msleep(20);
-	at91_set_gpio_output(AT91_PIN_PD12, 1);
-	msleep(100);
-
-out:
-	return 0;
-}
-
-static struct i2c_board_info i2c_camera = {
-	I2C_BOARD_INFO("ov2640", 0x30),
-};
-
-static struct soc_camera_link iclink_ov2640 = {
-	.bus_id			= 0,
-	.board_info		= &i2c_camera,
-	.i2c_adapter_id		= 0,
-	.power			= i2c_camera_power,
-	.query_bus_param	= isi_camera_query_bus_param,
-};
-
-static struct platform_device isi_ov2640 = {
-	.name	= "soc-camera-pdrv",
-	.id	= 0,
-	.dev	= {
-		.platform_data = &iclink_ov2640,
-	},
-};
-#endif
-
-
-/*
  * LCD Controller
  */
 #if defined(CONFIG_FB_ATMEL) || defined(CONFIG_FB_ATMEL_MODULE)
+
 static struct fb_videomode at91_tft_vga_modes[] = {
 	{
 		.name           = "LG",
 		.refresh	= 60,
-		.xres		= 480,		.yres		= 272,
-		.pixclock	= KHZ2PICOS(9000),
+		.xres		= 800,		.yres		= 480,
+		.pixclock	= KHZ2PICOS(10000),
 
-		.left_margin	= 1,		.right_margin	= 1,
-		.upper_margin	= 40,		.lower_margin	= 1,
-		.hsync_len	= 45,		.vsync_len	= 1,
+		.left_margin	= 89,		.right_margin	= 164,
+		.upper_margin	= 23,		.lower_margin	= 10,
+		.hsync_len	= 10,		.vsync_len	= 10,
 
 		.sync		= 0,
 		.vmode		= FB_VMODE_NONINTERLACED,
@@ -318,88 +254,6 @@ static struct at91_adc_data ek_adc_data = {
 	.use_external_triggers = true,
 	.vref = 3300,
 };
-
-/*
- * GPIO Buttons
- */
-#if defined(CONFIG_KEYBOARD_GPIO) || defined(CONFIG_KEYBOARD_GPIO_MODULE)
-static struct gpio_keys_button ek_buttons[] = {
-	{	/* BP1, "leftclic" */
-		.code		= BTN_LEFT,
-		.gpio		= AT91_PIN_PB6,
-		.active_low	= 1,
-		.desc		= "left_click",
-		.wakeup		= 1,
-	},
-	{	/* BP2, "rightclic" */
-		.code		= BTN_RIGHT,
-		.gpio		= AT91_PIN_PB7,
-		.active_low	= 1,
-		.desc		= "right_click",
-		.wakeup		= 1,
-	},
-		/* BP3, "joystick" */
-	{
-		.code		= KEY_LEFT,
-		.gpio		= AT91_PIN_PB14,
-		.active_low	= 1,
-		.desc		= "Joystick Left",
-	},
-	{
-		.code		= KEY_RIGHT,
-		.gpio		= AT91_PIN_PB15,
-		.active_low	= 1,
-		.desc		= "Joystick Right",
-	},
-	{
-		.code		= KEY_UP,
-		.gpio		= AT91_PIN_PB16,
-		.active_low	= 1,
-		.desc		= "Joystick Up",
-	},
-	{
-		.code		= KEY_DOWN,
-		.gpio		= AT91_PIN_PB17,
-		.active_low	= 1,
-		.desc		= "Joystick Down",
-	},
-	{
-		.code		= KEY_ENTER,
-		.gpio		= AT91_PIN_PB18,
-		.active_low	= 1,
-		.desc		= "Joystick Press",
-	},
-};
-
-static struct gpio_keys_platform_data ek_button_data = {
-	.buttons	= ek_buttons,
-	.nbuttons	= ARRAY_SIZE(ek_buttons),
-};
-
-static struct platform_device ek_button_device = {
-	.name		= "gpio-keys",
-	.id		= -1,
-	.num_resources	= 0,
-	.dev		= {
-		.platform_data	= &ek_button_data,
-	}
-};
-
-static void __init ek_add_device_buttons(void)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ek_buttons); i++) {
-		at91_set_GPIO_periph(ek_buttons[i].gpio, 1);
-		at91_set_deglitch(ek_buttons[i].gpio, 1);
-	}
-
-	platform_device_register(&ek_button_device);
-}
-#else
-static void __init ek_add_device_buttons(void) {}
-#endif
-
 
 /*
  * AC97
@@ -483,16 +337,12 @@ static void __init ek_board_init(void)
 	ek_add_device_nand();
 	/* I2C */
 	at91_add_device_i2c(0, NULL, 0);
-	/* ISI, using programmable clock as ISI_MCK */
-	at91_add_device_isi(&isi_data, true);
 	/* LCD Controller */
 	at91_add_device_lcdc(&ek_lcdc_data);
 	/* Touch Screen */
 	at91_add_device_tsadcc(&ek_tsadcc_data);
 	/* ADC */
 	at91_add_device_adc(&ek_adc_data);
-	/* Push Buttons */
-	ek_add_device_buttons();
 	/* AC97 */
 	at91_add_device_ac97(&ek_ac97_data);
 	/* LEDs */

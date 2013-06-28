@@ -126,14 +126,25 @@ static struct macb_platform_data __initdata ek_macb_data = {
  */
 static struct mtd_partition __initdata ek_nand_partition[] = {
 	{
-		.name	= "Partition 1",
+		.name	= "Bootstrap",
 		.offset	= 0,
-		.size	= SZ_64M,
+		.size	= 2 * SZ_128M,
 	},
+        {
+                .name   = "U-Boot",
+                .size   = 3 * SZ_128M,
+        },
+        {
+                .name   = "U-Boot_Env",
+                .size   = 1 * SZ_128M,
+        },
+        {
+                .name   = "Config",
+                .size   = 8 * SZ_128M,
+        },
 	{
-		.name	= "Partition 2",
-		.offset	= MTDPART_OFS_NXTBLK,
-		.size	= MTDPART_SIZ_FULL,
+		.name	= "Software",
+		.size	= 2010 * MTDPART_SIZ_FULL,
 	},
 };
 
@@ -242,8 +253,8 @@ static struct atmel_lcdfb_info __initdata ek_lcdc_data;
  */
 static struct at91_tsadcc_data ek_tsadcc_data = {
 	.adc_clock		= 300000,
-	.pendet_debounce	= 0x0d,
-	.ts_sample_hold_time	= 0x0a,
+	.pendet_debounce	= 0x2d,
+	.ts_sample_hold_time	= 0x3a,
 };
 
 /*
@@ -329,8 +340,8 @@ static void __init ek_board_init(void)
 	/* SPI */
 	at91_add_device_spi(ek_spi_devices, ARRAY_SIZE(ek_spi_devices));
 	/* MMC */
-	at91_add_device_mci(0, &mci0_data);
-	at91_add_device_mci(1, &mci1_data);
+	/*at91_add_device_mci(0, &mci0_data);
+	at91_add_device_mci(1, &mci1_data);*/
 	/* Ethernet */
 	at91_add_device_eth(&ek_macb_data);
 	/* NAND */
@@ -342,7 +353,7 @@ static void __init ek_board_init(void)
 	/* Touch Screen */
 	at91_add_device_tsadcc(&ek_tsadcc_data);
 	/* ADC */
-	at91_add_device_adc(&ek_adc_data);
+	/*at91_add_device_adc(&ek_adc_data);*/
 	/* AC97 */
 	at91_add_device_ac97(&ek_ac97_data);
 	/* LEDs */
@@ -352,7 +363,7 @@ static void __init ek_board_init(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
-MACHINE_START(HMI800, "Xylem HMI800")
+MACHINE_START(APP800, "Xylem APP800")
 	/* Maintainer: Atmel */
 	.timer		= &at91sam926x_timer,
 	.map_io		= at91_map_io,

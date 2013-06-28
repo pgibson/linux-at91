@@ -490,12 +490,12 @@ endif
 
 if ARCH_AT91SAM9G45
 
-comment "HMI800 Board Type"
+comment "APP800 Board Type"
 
-config MACH_HMI800
-        bool "Xylem HMI800 LCD"
+config MACH_APP800
+        bool "Xylem APP800 LCD"
         help
-          Select this if you are using Xylem's HMI800 LCD
+          Select this if you are using Xylem's APP800 LCD
 
 endif
 

@@ -295,7 +295,7 @@ static int __devinit atmel_tsadcc_probe(struct platform_device *pdev)
 	int		err = 0;
 	unsigned int	prsc;
 	unsigned int	reg, ghi_mr = 0;
-    unsigned int uDummy, Val = 1, Exp = 0;
+	unsigned int uDummy, Val = 1, Exp = 0;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -387,81 +387,40 @@ static int __devinit atmel_tsadcc_probe(struct platform_device *pdev)
 			memcpy(pdata, pdev->dev.platform_data, sizeof(*pdata));
 	}
 
-//	if (!pdata->adc_clock)
-//		pdata->adc_clock = ADC_DEFAULT_CLOCK;
-
-//printk("atmel_tsadcc_probe- adc_clock: %d\n", pdata->adc_clock);
-
-//	prsc = (prsc / (2 * pdata->adc_clock)) - 1;
-
-//printk("atmel_tsadcc_probe- prsc: %d %d\n", prsc, ATMEL_TSADCC_EPRESCAL);
-
 	atmel_tsadcc_write(PIO_IDR,  (1 << 20)|(1 << 21)|(1 << 22)|(1 << 23));
 	atmel_tsadcc_write(PIO_PUDR, (1 << 20)|(1 << 21)|(1 << 22)|(1 << 23));
-    atmel_tsadcc_write(ATMEL_TSADCC_IDR, 0xFFFF);
+	atmel_tsadcc_write(ATMEL_TSADCC_IDR, 0xFFFF);
 
-#if 0
-	/* saturate if this value is too high */
-	if (cpu_is_at91sam9rl()) {
-		if (prsc > PRESCALER_VAL(ATMEL_TSADCC_PRESCAL))
-			prsc = PRESCALER_VAL(ATMEL_TSADCC_PRESCAL);
-	} else {
-		if (prsc > PRESCALER_VAL(ATMEL_TSADCC_EPRESCAL))
-			prsc = PRESCALER_VAL(ATMEL_TSADCC_EPRESCAL);
-	}
-
-printk("Prescaler is set at: %d\n", prsc);
-
-	reg = ATMEL_TSADCC_TSAMOD_TS_ONLY_MODE		|
-		((0x00 << 5) & ATMEL_TSADCC_SLEEP)	|	/* Normal Mode */
-		((0x01 << 6) & ATMEL_TSADCC_PENDET)	|	/* Enable Pen Detect */
-		(prsc << 8)				|
-		((0x26 << 16) & ATMEL_TSADCC_STARTUP)	|
-		((pdata->pendet_debounce << 28) & ATMEL_TSADCC_PENDBC);
-
-printk("reg is set at: %lX\n", reg);
-#endif
 	atmel_tsadcc_write(ATMEL_TSADCC_CR, ATMEL_TSADCC_SWRST);
 
-//#if 0
 	ghi_mr = atmel_tsadcc_read(ATMEL_TSADCC_MR);
-    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_TSAMOD) | ATMEL_TSADCC_TSAMOD_TS_ONLY_MODE;
-    ghi_mr |= ATMEL_TSADCC_PENDET /*| ATMEL_TSADCC_SLEEP*/;
+	ghi_mr = (ghi_mr & ~ATMEL_TSADCC_TSAMOD) | ATMEL_TSADCC_TSAMOD_TS_ONLY_MODE;
+	ghi_mr |= ATMEL_TSADCC_PENDET /*| ATMEL_TSADCC_SLEEP*/;
 
-    /* 300kHz. */
-    uDummy = (ATMEL_MASTER_CLOCK << 4) / (ATMEL_ADS_CLOCK << 5) - 1;
-    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_PRESCAL) | ((uDummy << 8) & 0xff00);
+	/* 300kHz. */
+	uDummy = (ATMEL_MASTER_CLOCK << 4) / (ATMEL_ADS_CLOCK << 5) - 1;
+	ghi_mr = (ghi_mr & ~ATMEL_TSADCC_PRESCAL) | ((uDummy << 8) & 0xff00);
 
-    uDummy = (ATMEL_ADS_STARTUP * ATMEL_ADS_CLOCK) / (8 * 1000000);
-    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_STARTUP) | (uDummy << 16);
+	uDummy = (ATMEL_ADS_STARTUP * ATMEL_ADS_CLOCK) / (8 * 1000000);
+	ghi_mr = (ghi_mr & ~ATMEL_TSADCC_STARTUP) | (uDummy << 16);
 //    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_SHTIM) | (ATMEL_ADS_SHTIM << 24);
 	atmel_tsadcc_write(ATMEL_TSADCC_TSR, uDummy << 24);
 
-    uDummy = ATMEL_ADS_DEBOUNCE * (ATMEL_ADS_CLOCK / 1000);
+	uDummy = ATMEL_ADS_DEBOUNCE * (ATMEL_ADS_CLOCK / 1000);
+	while (Val < uDummy)
+	{
+		Val *= 2;
+		Exp++;
+	}
+	ts_dev->pendbc = Exp;
+	ghi_mr = (ghi_mr & ~ATMEL_TSADCC_PENDBC) | ((Exp & 0xf) << 28);
+	ghi_mr = (ghi_mr & ~0x00000080) | 0x80;
 
-    while (Val < uDummy)
-    {
-        Val *= 2;
-        Exp++;
-    }
-    ts_dev->pendbc = Exp;
-    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_PENDBC) | ((Exp & 0xf) << 28);
-    ghi_mr = (ghi_mr & ~0x00000080) | 0x80;
-
-printk("ghi_mr is set at: %lX\n", ghi_mr);
-//#if 0
-
-//#endif
 	atmel_tsadcc_write(ATMEL_TSADCC_MR, ghi_mr);
-//#endif
 	atmel_tsadcc_write(ATMEL_TSADCC_TRGR, ATMEL_TSADCC_TRGMOD_NONE);
-#if 0
-	atmel_tsadcc_write(ATMEL_TSADCC_TSR,
-		(pdata->ts_sample_hold_time << 24) & ATMEL_TSADCC_TSSHTIM);
-#endif
 	atmel_tsadcc_read(ATMEL_TSADCC_SR);
 	atmel_tsadcc_write(ATMEL_TSADCC_IER, ATMEL_TSADCC_PENCNT);
-    atmel_tsadcc_write(ATMEL_TSADCC_IMR, ATMEL_TSADCC_PENCNT);
+	atmel_tsadcc_write(ATMEL_TSADCC_IMR, ATMEL_TSADCC_PENCNT);
 
 	atmel_tsadcc_dump_conf(pdev);
 
@@ -470,7 +429,6 @@ printk("ghi_mr is set at: %lX\n", ghi_mr);
 	if (err)
 		goto err_fail;
 
-printk("touchscreen success.\n");
 	return 0;
 
 err_fail:

@@ -164,6 +164,7 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
         	if (ts_dev->reported == 1)
         	{
 		    input_report_key(input_dev, BTN_TOUCH, 0);
+            input_report_abs(input_dev, ABS_PRESSURE, 0);
     		    input_sync(input_dev);
 	        }
         	ts_dev->reported = 0;

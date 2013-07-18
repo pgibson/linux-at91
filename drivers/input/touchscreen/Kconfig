@@ -553,6 +553,18 @@ config TOUCHSCREEN_ATMEL_TSADCC
 	  To compile this driver as a module, choose M here: the
 	  module will be called atmel_tsadcc.
 
+config TOUCHSCREEN_ITT_TSADCC
+        tristate "ITT Touchscreen Interface"
+        depends on ARCH_AT91
+        help
+          Say Y here if you have a 4-wire ITT touchscreen connected to the
+          ADC Controller on your Atmel SoC.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called itt_tsadcc.
+
 config TOUCHSCREEN_UCB1400
 	tristate "Philips UCB1400 touchscreen"
 	depends on AC97_BUS

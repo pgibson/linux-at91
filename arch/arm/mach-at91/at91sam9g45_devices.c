@@ -1139,7 +1139,7 @@ static void __init at91_add_device_rtc(void) {}
  *  Touchscreen
  * -------------------------------------------------------------------- */
 
-#if defined(CONFIG_TOUCHSCREEN_ATMEL_TSADCC) || defined(CONFIG_TOUCHSCREEN_ATMEL_TSADCC_MODULE)
+#if defined(CONFIG_TOUCHSCREEN_ATMEL_TSADCC) || defined(CONFIG_TOUCHSCREEN_ATMEL_TSADCC_MODULE) || defined(CONFIG_TOUCHSCREEN_ITT_TSADCC)
 static u64 tsadcc_dmamask = DMA_BIT_MASK(32);
 static struct at91_tsadcc_data tsadcc_data;
 

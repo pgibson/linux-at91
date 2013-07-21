@@ -104,7 +104,8 @@
 #define ATMEL_ADS_STARTUP           500
 #define ATMEL_ADS_SHTIM             0xf
 #define ATMEL_ADS_DEBOUNCE          10
-#define TOUCH_PRESSURE_LIMIT        4000
+#define TOUCH_PRESSURE_LIMIT        2500
+#define TOUCH_NOISE_LIMIT           0x0A
 
 struct atmel_tsadcc {
 	struct input_dev	*input;
@@ -123,6 +124,7 @@ struct atmel_tsadcc {
     unsigned int        measurementX[5];
     unsigned int        measurementY[5];
     unsigned int        measurementZ[5];
+	unsigned int        buttonDown;
 };
 
 static void __iomem		*tsc_base;
@@ -146,7 +148,9 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
 	struct at91_tsadcc_data *pdata = &ts_dev->board;
 
 	unsigned int status;
-	unsigned int reg, pres, z1dat, z2dat;
+	unsigned int reg, pres, z1dat, z2dat, temp, i, j, lowSampNum, HiSampNum;
+	unsigned int nSamp[5];
+	unsigned int X, Y, Z;
 
 	status = atmel_tsadcc_read(ATMEL_TSADCC_SR);
 	status &= atmel_tsadcc_read(ATMEL_TSADCC_IMR);
@@ -161,21 +165,38 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
 		atmel_tsadcc_write(ATMEL_TSADCC_IER, ATMEL_TSADCC_PENCNT);
 		atmel_tsadcc_write(ATMEL_TSADCC_IMR, ATMEL_TSADCC_PENCNT);
 
-        	if (ts_dev->reported == 1)
-        	{
-		    input_report_key(input_dev, BTN_TOUCH, 0);
-            input_report_abs(input_dev, ABS_PRESSURE, 0);
-    		    input_sync(input_dev);
-	        }
-        	ts_dev->reported = 0;
-        	ts_dev->measurenumber = 0;
+		if (ts_dev->reported == 1)
+		{
+			input_report_abs(input_dev, ABS_X, ts_dev->prev_absx);
+			input_report_abs(input_dev, ABS_Y, ts_dev->prev_absy);
+			input_report_abs(input_dev, ABS_PRESSURE, ts_dev->prev_absz);
+			input_report_key(input_dev, BTN_TOUCH, 1);
+			input_sync(input_dev);
+
+			input_report_key(input_dev, BTN_TOUCH, 0);
+			input_report_abs(input_dev, ABS_PRESSURE, 0);
+			input_sync(input_dev);
+		}
+		ts_dev->reported = 0;
+		ts_dev->measurenumber = 0;
+		ts_dev->buttonDown = false;
 
 	} else if (status & ATMEL_TSADCC_PENCNT) {
 		/* Pen detected */
 		reg = atmel_tsadcc_read(ATMEL_TSADCC_MR);
 		reg &= ~ATMEL_TSADCC_PENDBC;
-        	ts_dev->reported = 0;
-        	ts_dev->measurenumber = 0;
+        ts_dev->reported = 0;
+        ts_dev->measurenumber = 0;
+        for (i = 0; i < 5; i++)
+        {
+            ts_dev->measurementX[i]=0;
+            ts_dev->measurementY[i]=0;
+        }
+		ts_dev->buttonDown = true;
+		ts_dev->prev_absx = 0;
+		ts_dev->prev_absy = 0;
+		ts_dev->prev_absz = 0;
+
 		atmel_tsadcc_write(ATMEL_TSADCC_IDR, ATMEL_TSADCC_PENCNT);
 		atmel_tsadcc_write(ATMEL_TSADCC_MR, reg);
 		atmel_tsadcc_write(ATMEL_TSADCC_IER,
@@ -185,6 +206,9 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
 		atmel_tsadcc_write(ATMEL_TSADCC_TRGR,
 				   ATMEL_TSADCC_TRGMOD_PERIOD | (0x09FF << 16));
 
+		/* Software controlled triggering */
+		/* atmel_tsadcc_write(ATMEL_TSADCC_CR, 2); */
+
 	} else if (status & ATMEL_TSADCC_EOC(3)) {
 		/* Conversion finished, make new measurement */
 		ts_dev->measurementX[ts_dev->measurenumber] = atmel_tsadcc_read(ATMEL_TSADCC_CDR3) << 10;
@@ -193,35 +217,164 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
 		ts_dev->measurementY[ts_dev->measurenumber] = atmel_tsadcc_read(ATMEL_TSADCC_CDR1) << 10;
 		ts_dev->measurementY[ts_dev->measurenumber] /= atmel_tsadcc_read(ATMEL_TSADCC_CDR0);
 
-	        z1dat = atmel_tsadcc_read(ATMEL_TSADCC_Z1DAT);
-       		z2dat = atmel_tsadcc_read(ATMEL_TSADCC_Z2DAT);
+		z1dat = atmel_tsadcc_read(ATMEL_TSADCC_Z1DAT);
+		z2dat = atmel_tsadcc_read(ATMEL_TSADCC_Z2DAT);
 
-        	if (z1dat != 0)
-        	{
-            	    pres = (atmel_tsadcc_read(ATMEL_TSADCC_XPOS) * ((z2dat/z1dat)-1) * 1000) / 1024;
-	    	    ts_dev->measurementZ[ts_dev->measurenumber] =  pres;
-            	    if (pres <= TOUCH_PRESSURE_LIMIT)
-                        ts_dev->measurenumber++;
-	        }
-       		else
-        	{
-	    		// Do nothing, sample ignored
-        	}
+		if (z1dat != 0)
+		{
+			pres = (atmel_tsadcc_read(ATMEL_TSADCC_XPOS) * ((z2dat/z1dat)-1) * 1000) / 1024;
+			ts_dev->measurementZ[ts_dev->measurenumber] =  pres;
+			ts_dev->measurenumber++;
+		}
+		else
+		{
+			// Do nothing, sample ignored
+		}
 
-        	if (ts_dev->measurenumber >= 4)
-        	{
-                	unsigned int X = (ts_dev->measurementX[1] + ts_dev->measurementX[2] + ts_dev->measurementX[3]) / 3;
-                	unsigned int Y = (ts_dev->measurementY[1] + ts_dev->measurementY[2] + ts_dev->measurementY[3]) / 3;
-                	unsigned int Z = (ts_dev->measurementZ[1] + ts_dev->measurementZ[2] + ts_dev->measurementZ[3]) / 3;
-			input_report_abs(input_dev, ABS_X, X);
-			input_report_abs(input_dev, ABS_Y, Y);
-			input_report_abs(input_dev, ABS_PRESSURE, Z);
-			input_report_key(input_dev, BTN_TOUCH, 1);
-			input_sync(input_dev);
-                	ts_dev->reported = 1;
-                	ts_dev->measurenumber = 0;
-        	}
-	}
+		if (ts_dev->measurenumber >= 4)
+		{
+			Z = 0;
+	        for (i = 0; i < 5; i++)
+	        {
+				Z += ts_dev->measurementZ[i];
+			}
+			Z /= 5;
+			if (pres < TOUCH_PRESSURE_LIMIT)
+			{
+                /* throw out lowest sample */
+                temp = ts_dev->measurementX[0];
+                lowSampNum = 0;
+
+                for (i = 0; i < 4; i++)
+                {
+                    if (temp > ts_dev->measurementX[i+1])
+                    {
+                        temp = ts_dev->measurementX[i+1];
+                        lowSampNum = i+1;
+                    }
+                }
+                ts_dev->measurementX[lowSampNum] = 0;
+
+                /* throw out highest sample */
+                temp = ts_dev->measurementX[0];
+                HiSampNum = 0;
+
+                for (i = 0; i < 4; i++)
+                {
+                    if (temp < ts_dev->measurementX[i+1])
+                    {
+                        temp = ts_dev->measurementX[i+1];
+                        HiSampNum = i+1;
+                    }
+                }
+                ts_dev->measurementX[HiSampNum] = 0;
+
+                j = 0;
+
+                for (i =0; i < 5; i++)
+                {
+                    if(ts_dev->measurementX[i])
+                    {
+                        /* only three remaining samples */
+                        nSamp[j++] = ts_dev->measurementX[i];
+                    }                
+                }
+
+                if ( j > 2 &&
+                        (abs(nSamp[0] - nSamp[1]) < TOUCH_NOISE_LIMIT) &&
+                        (abs(nSamp[1] - nSamp[2]) < TOUCH_NOISE_LIMIT) &&
+                        (abs(nSamp[2] - nSamp[0]) < TOUCH_NOISE_LIMIT))
+
+                {
+                    /* good sample obtained */
+                    X = (nSamp[0] + nSamp[1] + nSamp[2]) / 3;
+                }
+                else
+                {
+                    X = 0;
+                    Y = 0;
+                }
+
+                /* X coordinate sampled successfull calculate Y coordinate. */
+                if(X != 0)
+                {//AH
+                    /* throw out lowest sample */
+                    temp = ts_dev->measurementY[0];
+                    lowSampNum = 0;
+
+                    for (i = 0; i < 4; i++)
+                    {
+                        if (temp > ts_dev->measurementY[i+1])
+                        {
+                            temp = ts_dev->measurementY[i+1];
+                            lowSampNum = i+1;
+                        }
+                    }
+
+                    ts_dev->measurementY[lowSampNum] = 0;
+
+
+                    /* throw out highest sample */
+                    temp = ts_dev->measurementY[0];
+                    HiSampNum = 0;
+
+                    for (i = 0; i < 4; i++)
+                    {
+                        if (temp < ts_dev->measurementY[i+1])
+                        {
+                            temp = ts_dev->measurementY[i+1];
+                            HiSampNum = i+1;
+                        }
+                    }
+                    ts_dev->measurementY[HiSampNum] = 0;
+
+                    j = 0;
+                    for (i = 0; i < 5; i++)
+                    {
+                        if(ts_dev->measurementY[i])
+                        {
+                            /* only three remaining samples */
+                            nSamp[j++] = ts_dev->measurementY[i];
+                        }
+                    }
+
+                    if (j > 2 &&
+                            (abs(nSamp[0] - nSamp[1]) < TOUCH_NOISE_LIMIT) &&
+                            (abs(nSamp[1] - nSamp[2]) < TOUCH_NOISE_LIMIT) &&
+                            (abs(nSamp[2] - nSamp[0]) < TOUCH_NOISE_LIMIT))
+                    {
+                        /* good sample obtained */
+                        Y = (nSamp[0] + nSamp[1] + nSamp[2]) / 3;
+                        ts_dev->buttonDown = true;
+                    }
+                    else
+                    {
+                        /* Y coordinate sample failed set sample to default. */
+                        X = 0;
+                        Y = 0;
+                    }
+ 
+					if (X != 0 && Y != 0)
+					{
+						ts_dev->prev_absx = X;
+						ts_dev->prev_absy = Y;
+						ts_dev->prev_absz = Z;
+/*
+						input_report_abs(input_dev, ABS_X, X);
+						input_report_abs(input_dev, ABS_Y, Y);
+						input_report_abs(input_dev, ABS_PRESSURE, Z);
+						input_report_key(input_dev, BTN_TOUCH, ts_dev->buttonDown);
+						input_sync(input_dev); */
+						ts_dev->reported = 1;
+					}
+				}
+			}
+			ts_dev->measurenumber = 0;
+		}
+
+		/* Software controlled triggering */
+		/* atmel_tsadcc_write(ATMEL_TSADCC_CR, 2); */
+    }
 
 	return IRQ_HANDLED;
 }
@@ -404,7 +557,7 @@ static int __devinit atmel_tsadcc_probe(struct platform_device *pdev)
 
 	uDummy = (ATMEL_ADS_STARTUP * ATMEL_ADS_CLOCK) / (8 * 1000000);
 	ghi_mr = (ghi_mr & ~ATMEL_TSADCC_STARTUP) | (uDummy << 16);
-//    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_SHTIM) | (ATMEL_ADS_SHTIM << 24);
+    ghi_mr = (ghi_mr & ~ATMEL_TSADCC_SHTIM) | (ATMEL_ADS_SHTIM << 24);
 	atmel_tsadcc_write(ATMEL_TSADCC_TSR, uDummy << 24);
 
 	uDummy = ATMEL_ADS_DEBOUNCE * (ATMEL_ADS_CLOCK / 1000);

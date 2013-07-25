@@ -755,6 +755,13 @@ int __atmel_lcdfb_probe(struct platform_device *pdev,
 	if (sinfo->atmel_lcdfb_power_control)
 		sinfo->atmel_lcdfb_power_control(1);
 
+	#if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
+	if (fb_prepare_logo(info, FB_ROTATE_UR))
+	{
+		fb_show_logo(info, FB_ROTATE_UR);
+	}
+	#endif
+
 	dev_info(dev, "fb%d: Atmel LCDC at 0x%08lx (mapped at %p), irq %d\n",
 		       info->node, info->fix.mmio_start, sinfo->mmio, sinfo->irq_base);
 

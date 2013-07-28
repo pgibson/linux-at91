@@ -118,13 +118,13 @@ struct atmel_tsadcc {
 
 	struct at91_tsadcc_data board;
 	unsigned char		bufferedmeasure;
-    unsigned char       pendbc;
-    unsigned char       reported;
-    unsigned char       measurenumber;
-    unsigned int        measurementX[5];
-    unsigned int        measurementY[5];
-    unsigned int        measurementZ[5];
-	unsigned int        buttonDown;
+	unsigned char		pendbc;
+	unsigned char		reported;
+	unsigned char       	measurenumber;
+	unsigned int        	measurementX[5];
+	unsigned int        	measurementY[5];
+	unsigned int        	measurementZ[5];
+	unsigned int        	buttonDown;
 };
 
 static void __iomem		*tsc_base;
@@ -167,12 +167,13 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
 
 		if (ts_dev->reported == 1)
 		{
+/*
 			input_report_abs(input_dev, ABS_X, ts_dev->prev_absx);
 			input_report_abs(input_dev, ABS_Y, ts_dev->prev_absy);
 			input_report_abs(input_dev, ABS_PRESSURE, ts_dev->prev_absz);
 			input_report_key(input_dev, BTN_TOUCH, 1);
 			input_sync(input_dev);
-
+*/
 			input_report_key(input_dev, BTN_TOUCH, 0);
 			input_report_abs(input_dev, ABS_PRESSURE, 0);
 			input_sync(input_dev);
@@ -185,13 +186,13 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
 		/* Pen detected */
 		reg = atmel_tsadcc_read(ATMEL_TSADCC_MR);
 		reg &= ~ATMEL_TSADCC_PENDBC;
-        ts_dev->reported = 0;
-        ts_dev->measurenumber = 0;
-        for (i = 0; i < 5; i++)
-        {
-            ts_dev->measurementX[i]=0;
-            ts_dev->measurementY[i]=0;
-        }
+ 		ts_dev->reported = 0;
+        	ts_dev->measurenumber = 0;
+        	for (i = 0; i < 5; i++)
+        	{
+            		ts_dev->measurementX[i]=0;
+            		ts_dev->measurementY[i]=0;
+        	}
 		ts_dev->buttonDown = true;
 		ts_dev->prev_absx = 0;
 		ts_dev->prev_absy = 0;
@@ -354,26 +355,28 @@ static irqreturn_t atmel_tsadcc_interrupt(int irq, void *dev)
                         Y = 0;
                     }
  
-					if (X != 0 && Y != 0)
-					{
-						ts_dev->prev_absx = X;
-						ts_dev->prev_absy = Y;
-						ts_dev->prev_absz = Z;
-/*
-						input_report_abs(input_dev, ABS_X, X);
-						input_report_abs(input_dev, ABS_Y, Y);
-						input_report_abs(input_dev, ABS_PRESSURE, Z);
-						input_report_key(input_dev, BTN_TOUCH, ts_dev->buttonDown);
-						input_sync(input_dev); */
-						ts_dev->reported = 1;
-					}
-				}
-			}
-			ts_dev->measurenumber = 0;
-		}
+		    if (X != 0 && Y != 0)
+		    {
+			ts_dev->prev_absx = X;
+			ts_dev->prev_absy = Y;
+			ts_dev->prev_absz = Z;
 
-		/* Software controlled triggering */
-		/* atmel_tsadcc_write(ATMEL_TSADCC_CR, 2); */
+			if (ts_dev->reported == 0)
+			{
+				input_report_abs(input_dev, ABS_X, X);
+				input_report_abs(input_dev, ABS_Y, Y);
+				input_report_abs(input_dev, ABS_PRESSURE, Z);
+				input_report_key(input_dev, BTN_TOUCH, ts_dev->buttonDown);
+				input_sync(input_dev);
+				ts_dev->reported = 1;
+			}
+		    }
+		}
+ 	    }
+	    ts_dev->measurenumber = 0;
+	}
+	/* Software controlled triggering */
+	/* atmel_tsadcc_write(ATMEL_TSADCC_CR, 2); */
     }
 
 	return IRQ_HANDLED;

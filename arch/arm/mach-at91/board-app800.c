@@ -141,13 +141,18 @@ static struct mtd_partition __initdata ek_nand_partition[] = {
                 .size   = 1 * SZ_128K,
         },
         {
+                .name   = "kernel",
+                .offset = 6 * SZ_128K,
+                .size   = 24 * SZ_128K,
+        },
+        {
                 .name   = "Config",
-		.offset = 6 * SZ_128K,
+		.offset = 30 * SZ_128K,
                 .size   = 8 * SZ_128K,
         },
 	{
 		.name	= "Software",
-		.offset = 14 * SZ_128K,
+		.offset = 38 * SZ_128K,
 		.size	= 2010 * SZ_128K,
 	},
 };

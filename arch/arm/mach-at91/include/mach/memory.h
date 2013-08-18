@@ -23,4 +23,9 @@
 
 #include <mach/hardware.h>
 
+#define NODE_MEM_SIZE_BITS	27
+#define MAX_PHYSMEM_BITS    32
+#define SECTION_SIZE_BITS    27 /*128 Mb */
+#define HIGH_MEMORY_VIRT	0xd0000000
+
 #endif

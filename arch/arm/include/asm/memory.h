@@ -169,6 +169,20 @@ extern unsigned long __pv_phys_offset;
 	: "=r" (to)					\
 	: "r" (from), "I" (type))
 
+#if defined(CONFIG_ARCH_AT91SAM9G45) || defined(CONFIG_ARCH_AT91SAM9M10)
+/*
+ * Replace the linear mapping with a non-linear mapping like so:
+ * phys       => virt
+ * 0x70000000 => 0xc0000000
+ * 0x20000000 => 0xc8000000
+ */
+#define __phys_to_virt(p)   \
+            (((p) & 0x07ffffff) + (((p) & 0x40000000) ? 0xc0000000 : 0xc8000000))
+
+#define __virt_to_phys(v)   \
+            (((v) & 0x07ffffff) + (((v) & 0x08000000) ? 0x20000000 : 0x70000000 ))
+#endif
+/*
 static inline unsigned long __virt_to_phys(unsigned long x)
 {
 	unsigned long t;
@@ -182,6 +196,7 @@ static inline unsigned long __phys_to_virt(unsigned long x)
 	__pv_stub(x, t, "sub", __PV_BITS_31_24);
 	return t;
 }
+*/
 #else
 #define __virt_to_phys(x)	((x) - PAGE_OFFSET + PHYS_OFFSET)
 #define __phys_to_virt(x)	((x) - PHYS_OFFSET + PAGE_OFFSET)

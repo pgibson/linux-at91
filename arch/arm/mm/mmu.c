@@ -998,7 +998,11 @@ void __init sanity_check_meminfo(void)
 	}
 #endif
 	meminfo.nr_banks = j;
+#ifdef HIGH_MEMORY_VIRT
+	high_memory = HIGH_MEMORY_VIRT0; 
+#else
 	high_memory = __va(arm_lowmem_limit - 1) + 1;
+#endif
 	memblock_set_current_limit(arm_lowmem_limit);
 }
 
